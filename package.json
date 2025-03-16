@@ -1,0 +1,10 @@
+{
+    "name": "graphics-gl2",
+    "author": {
+        "name": "Steven Boyd",
+        "url": "https://sboyd.dev"
+    },
+    "version": "1.0.0",
+    "description": "Creates a worker thread environment to handle Webgl2 operations. Customize as needed",
+    "files":["main.ts", "thread.ts"]
+}
