@@ -1,6 +1,6 @@
 export function Compiler( gl:WebGL2RenderingContext, vertex:string, fragment:string ) {
-    const vshader = compileProgam(gl, vertex, gl.VERTEX_SHADER);
-    const fshader = compileProgam(gl, fragment, gl.FRAGMENT_SHADER);
+    const vshader = compileShader(gl, vertex, gl.VERTEX_SHADER);
+    const fshader = compileShader(gl, fragment, gl.FRAGMENT_SHADER);
     return compileProgam(gl, vshader, fshader);
 }
 
@@ -10,10 +10,12 @@ const compileShader = (gl:WebGL2RenderingContext, source:string, type:GLenum) =>
         gl.shaderSource(shader, source);
         gl.compileShader(shader);
         const success = gl.getShaderParameter(shader, gl.COMPILE_STATUS);
+        console.log('status', success);
         if(!success) throw 'GL - Shader Compile Error.'
         return shader;
     } catch( error ) {
-        console.log(gl.getShaderInfoLog(shader));
+        console.log(gl.getShaderInfoLog(shader) + '\n------------');
+        console.log(source, '\n' + type);
         gl.deleteShader(shader);
         throw error;
     }

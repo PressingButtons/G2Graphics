@@ -1,4 +1,6 @@
 import { Shader } from "../classes/shader.ts";
+import { ColorShader } from "../shaders/color.ts";
+import { mat4 } from "./glmatrix.ts";
 
 export namespace ShaderLib {
 
@@ -6,86 +8,34 @@ export namespace ShaderLib {
 
     let color:Shader;
     let texture:Shader;
+    let cached:{camera:Trio, buffers:ArrayBuffer[]}
 
     export function enable(context:WebGL2RenderingContext) {
         gl = context;
-        enableColorShader( );
+        color = ColorShader(gl);
     }
 
-    function enableColorShader( ) {
-        const vertex = 
-            `#version 300 es
-
-            layout (location=0) in vec4 a_position;
-            layout (location=1) in mat4 a_transform;
-            layout (location=5) in vec4 a_color;
-
-            uniform mat4 u_projection;
-
-            out vec4 v_color;
-
-            void main( ) {
-                gl_Position = u_projection * a_transform * a_position;
-                v_color = a_color;
-            }`
-        ;
-
-        const fragment = 
-            `#version 300 es
-
-            precision highp float;
-
-            in  vec4 v_color;
-            out vec4 fragColor;
-
-            void main( ) {
-                fragColor = v_color;
-            }`
-        ;
-
-        color = Shader.create(gl, vertex, fragment);
-        const uProjectoin = gl.getUniformLocation(color.program, 'u_projection');
-        // create vertices
-        const square = color.createVertex('square');
-        square.model.setData(
-            new Int8Array([-1,-1, 0, 1,-1, 0,-1, 1, 0, 1, 1, 0]), 
-            gl.STATIC_DRAW
-        );
-        // setting up square vertex
-        square.setAttribute({
-            name:"a_position",
-            size: 3,
-            stride: 5,
-            offset: 0,
-            type: gl.BYTE,
-            buffer:square.model.buffer
-        });
-        square.setMatrixAttribute({
-            name: 'a_transform',
-            stride: 84,
-            offset:0,
-            type:gl.FLOAT,
-            buffer: color.transform.buffer
-        });
-        square.setMultiAttribute({
-            name:'a_color',
-            stride:84,
-            offset:64,
-            size:4,
-            iterations:4,
-            type:gl.FLOAT,
-            buffer:color.transform.buffer
-        });
-        // setting up the draw function
-        square.draw = function(data) {
-            const count = this.shader.transform.update(data);
-            gl.bindVertexArray(this.vertex);
-            gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
+    export function draw(options:{camera:Trio, buffers:ArrayBuffer[]}) {
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        fill([0, 0, 0.2, 0.1]);
+        cached = options;
+        const projection = new Float32Array(16);
+        mat4.ortho(projection, options.camera, gl.canvas as OffscreenCanvas);
+        for(const buffer of options.buffers) {
+            if(buffer.byteLength == 0) continue;
+            const base = new Int8Array(buffer, 0, 4);
+            if(base[0] == -1) color.draw('square', projection, buffer);
         }
     }
 
-    function enableTextureShader( ) {
+    export function fill(color:Quad) {
+        gl.clearColor(...color);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+    }
 
+    export function redraw( ) {
+        if(cached)
+            draw(cached);
     }
 
 }

@@ -1,5 +1,6 @@
 import { Compiler } from "../scripts/compiler.ts";
-import { mat4 } from "../scripts/glmatrix";
+import { mat4 } from "../scripts/glmatrix.ts";
+import { DRAWABLE_BASEOFFSET, DRAWABLE_BLOCKSIZE } from "./drawable.ts";
 
 let gl:WebGL2RenderingContext;
 
@@ -40,6 +41,7 @@ export class Shader {
     draw(type:string, projection:Float32Array, data:ArrayBufferLike) {
         gl.useProgram(this.program);
         gl.uniformMatrix4fv(this._uprojection, false, projection);
+        this._transform.modifyData(data);
         if(this._vertices[type]) {
             this._vertices[type].draw(data);
         }
@@ -60,7 +62,7 @@ interface MultiAttribute extends SingleAttribute {
     iterations:(2 | 3 | 4);
 } 
 
-type MatrixAttribute = Omit<SingleAttribute, "size">;
+type MatrixAttribute = Omit<SingleAttribute, "size" | "type">;
 
 class ShaderVertex {
 
@@ -98,28 +100,26 @@ class ShaderVertex {
 
     setMultiAttribute( config:MultiAttribute ) {
         let location = gl.getAttribLocation(this.shader.program, config.name);
-        if(location != - 1) {
+        if(location > -1) {
             gl.bindVertexArray(this.vertex);
             gl.bindBuffer(gl.ARRAY_BUFFER, config.buffer);
             for(let i = 0; i < config.iterations; i++) {
-                location += i;
-                gl.enableVertexAttribArray(location);
-                gl.vertexAttribPointer(location, config.size, config.type, false, config.stride, config.offset);
-                gl.vertexAttribDivisor(location, 1);
+                gl.enableVertexAttribArray(location + i);
+                gl.vertexAttribPointer(location + i, config.size, config.type, false, config.stride, config.offset);
+                gl.vertexAttribDivisor(location + i, 1);
             }
         }
     }
 
     setMatrixAttribute( config: MatrixAttribute ) {
         let location = gl.getAttribLocation(this.shader.program, config.name);
-        if(location != - 1) {
+        if(location > -1) {
             gl.bindVertexArray(this.vertex);
             gl.bindBuffer(gl.ARRAY_BUFFER, config.buffer);
             for(let i = 0; i < 4; i++) {
-                location += i;
-                gl.enableVertexAttribArray(location);
-                gl.vertexAttribPointer(location, 4, config.type, false, config.stride, config.offset);
-                gl.vertexAttribDivisor(location, 1);
+                gl.enableVertexAttribArray(location + i);
+                gl.vertexAttribPointer(location + i, 4, gl.FLOAT, false, config.stride, config.offset + (i * 16));
+                gl.vertexAttribDivisor(location + i, 1);
             }
         }
     }
@@ -167,25 +167,40 @@ class TransformBuffer extends ShaderBuffer {
         super( );
     }
 
+    get bufferData( ) {
+        return this.data as Float32Array;
+    }
+
+    private _getViews(buffer:ArrayBuffer, offset:number) {
+        const view = new Float32Array(buffer, offset, DRAWABLE_BLOCKSIZE / 4);
+        return {
+            view,
+            position: view.subarray(0, 3).map(Math.round),
+            rotation: view.subarray(3, 6),
+            scale:    view.subarray(6, 9).map(Math.round),
+            color:    view.subarray(9, 13),
+            depth:    view[13],
+            scheme:   view[14],
+        }
+    }
+
+    private _updateChunk(buffer:ArrayBuffer, i:number) {
+        const offset = DRAWABLE_BASEOFFSET + DRAWABLE_BLOCKSIZE * i;
+        const subset = this.bufferData.subarray(i * 22, i * 22 + 22);
+        const views  = this._getViews(buffer, offset);
+        mat4.fromTranslation(subset, views.position);
+        mat4.rotate(subset, views.rotation);
+        mat4.scale(subset, views.scale);
+        subset.set(views.color, 16);
+        subset[20] = views.depth;
+        subset[21] = views.scheme;
+    }
+
     update(buffer:ArrayBuffer) {
-        const count = (buffer.byteLength - 2) / 32;
-        const blocks = new Array(count).fill(0).map((x, i) => {
-            const offset = 2 + 32 * i;
-            const rotation = new Float32Array(buffer, offset, 3);
-            const [depth, scheme] = new Uint8Array(buffer, offset + 12, 2);
-            const color = new Uint8Array(buffer, offset + 14, 4);
-            const position = new Int16Array(buffer, offset + 18, 3);
-            const scale = new Int16Array(buffer, offset + 24, 3);
-            // now actually update the buffer
-            const bufferData = this.data as Float32Array;
-            const subset = bufferData.subarray(i * 22, i * 22 + 22);
-            mat4.fromTranslation(subset, [...position] as Trio);
-            mat4.rotate(subset, rotation);
-            mat4.scale(subset, [...scale].map(x => x / 200) as Trio);
-            subset.set([...color].map(x => x / 255) as Quad, 16);
-            subset[20] = depth;
-            subset[21] = scheme;
-        });
+        const count = (buffer.byteLength - DRAWABLE_BASEOFFSET) / DRAWABLE_BLOCKSIZE;
+        if(count < 1) return 0;
+        new Array(count).fill(buffer).map(this._updateChunk.bind(this));
+        this.modifyData(this.bufferData, 0);
         return count;
     }
     
