@@ -1,6 +1,6 @@
 import { Compiler } from "../scripts/compiler.ts";
 import { mat4 } from "../scripts/glmatrix.ts";
-import { DRAWABLE_BASEOFFSET, DRAWABLE_BLOCKSIZE } from "./drawable.ts";
+import { DrawableBaseSize, DrawableBlockSize } from "./drawable.ts";
 
 let gl:WebGL2RenderingContext;
 
@@ -172,7 +172,7 @@ class TransformBuffer extends ShaderBuffer {
     }
 
     private _getViews(buffer:ArrayBuffer, offset:number) {
-        const view = new Float32Array(buffer, offset, DRAWABLE_BLOCKSIZE / 4);
+        const view = new Float32Array(buffer, offset, DrawableBlockSize / 4);
         return {
             view,
             position: view.subarray(0, 3).map(Math.round),
@@ -185,7 +185,7 @@ class TransformBuffer extends ShaderBuffer {
     }
 
     private _updateChunk(buffer:ArrayBuffer, i:number) {
-        const offset = DRAWABLE_BASEOFFSET + DRAWABLE_BLOCKSIZE * i;
+        const offset = DrawableBaseSize + DrawableBlockSize * i;
         const subset = this.bufferData.subarray(i * 22, i * 22 + 22);
         const views  = this._getViews(buffer, offset);
         mat4.fromTranslation(subset, views.position);
@@ -197,7 +197,7 @@ class TransformBuffer extends ShaderBuffer {
     }
 
     update(buffer:ArrayBuffer) {
-        const count = (buffer.byteLength - DRAWABLE_BASEOFFSET) / DRAWABLE_BLOCKSIZE;
+        const count = (buffer.byteLength - DrawableBaseSize) / DrawableBlockSize;
         if(count < 1) return 0;
         new Array(count).fill(buffer).map(this._updateChunk.bind(this));
         this.modifyData(this.bufferData, 0);

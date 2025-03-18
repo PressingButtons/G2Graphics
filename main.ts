@@ -13,7 +13,7 @@ export class G2Graphics {
         const thread = new ThreadObject(new URL('./scripts/thread.js', import.meta.url));
         // initialize thread 
         const offsreen = canvas.transferControlToOffscreen( );
-        await thread.send('init', offsreen, [offsreen]);
+        await thread.request('init', offsreen, [offsreen]);
         console.log('Graphics Enabled!');
         instance = new G2Graphics(thread);
         return instance;

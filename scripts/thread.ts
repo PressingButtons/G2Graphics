@@ -17,7 +17,6 @@ thread.listen('init', async(canvas:OffscreenCanvas) => {
     const resize = (size:Duo) => {
         canvas.width = size[0];
         canvas.height = size[1];
-        console.log('virtual', canvas.width, canvas.height)
         ShaderLib.redraw( );
     }
     // setup routes

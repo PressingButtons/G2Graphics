@@ -1,5 +1,6 @@
 import { Shader } from "../classes/shader.ts";
 import { ColorShader } from "../shaders/color.ts";
+import { TextureShader } from "../shaders/texture.ts";
 import { mat4 } from "./glmatrix.ts";
 
 export namespace ShaderLib {
@@ -13,6 +14,7 @@ export namespace ShaderLib {
     export function enable(context:WebGL2RenderingContext) {
         gl = context;
         color = ColorShader(gl);
+        texture = TextureShader(gl);
     }
 
     export function draw(options:{camera:Trio, buffers:ArrayBuffer[]}) {
@@ -24,7 +26,11 @@ export namespace ShaderLib {
         for(const buffer of options.buffers) {
             if(buffer.byteLength == 0) continue;
             const base = new Int8Array(buffer, 0, 4);
-            if(base[0] == -1) color.draw('square', projection, buffer);
+            if(base[0] != 0) {
+                if(base[1] == 0)
+                    texture.draw('square', projection, buffer);
+            }
+            else color.draw('square', projection, buffer);
         }
     }
 
