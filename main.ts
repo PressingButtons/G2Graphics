@@ -1,5 +1,4 @@
-import { Drawable } from "./classes/drawable.ts";
-import { ThreadObject } from "./Threader/thread.ts";
+import { ThreadObject } from "../Threader/thread.ts";
 
 const url = new URL('/scripts/thread.js', import.meta.url);
 
@@ -25,11 +24,6 @@ export class G2Graphics {
         this._thread = thread;
     }
 
-
-    async fill(color:[number, number, number, number]) {
-        return this._thread.send('fill', color);
-    }
-
     async createTexture(id:number, url:URL | string, size:[number, number], type:number = 0) {
         const bitmap = await this.loadBitmap(url);
         return this._thread.send("make-texture", {id, bitmap, size, type}, [bitmap]);
@@ -49,9 +43,24 @@ export class G2Graphics {
         return this._thread.send('resize', size);
     }
 
-    async draw( drawables:Drawable[], camera:Trio = [0, 0, 1] ) {
-        const buffers = drawables.map( x => x.toBuffer( ));
-        return this._thread.send('draw', {camera, buffers}, buffers);     
+    async clear(color:Quad) {
+        this._thread.send('clear', color);
+    }
+
+    async sendChunks(buffers:ArrayBuffer[]) {
+        this._thread.send('allocate', buffers, buffers);
+    }
+
+    async render( ) {
+        this._thread.send('render');
+    }
+
+    async setCamera(camera:Quad = [0, 0, 1, 45], look?:Trio) {
+        this._thread.send('camera', {camera, look});
+    }
+
+    async draw(buffers:ArrayBuffer[], background:Quad = [0, 0, 0.2, 1], camera:Trio = [0, 0, 1]) {
+        this._thread.send('draw', {buffers, camera, background}, buffers);
     }
 
 }
